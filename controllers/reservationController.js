@@ -22,10 +22,12 @@ exports.createReservation = async (req, res) => {
 // Get reservations for the logged-in user
 exports.getUserReservations = async (req, res) => {
   try {
-    const reservations = await Reservation.find({ userId: req.user.id }).populate('restaurantId');
+    const userId = req.user.id;
+    const reservations = await Reservation.find({ userId })
+      .populate('restaurantId');
     res.status(200).json(reservations);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: 'Error fetching reservations' });
   }
 };
 
