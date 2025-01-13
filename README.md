@@ -135,6 +135,27 @@
 - **Method**: `DELETE`
 - **Headers**: `Authorization: Bearer <token>`
 
+## User Reservations
+
+### Get User's Reservations
+- **URL**: `/api/user/reservations`
+- **Method**: `GET`
+- **Headers**: `Authorization: Bearer <token>`
+- **Success Response**:
+  ```json
+  [
+    {
+      "userId": "user_id",
+      "restaurantId": "restaurant_id",
+      "date": "2024-03-20T00:00:00.000Z",
+      "timeSlot": "19:00",
+      "status": "confirmed",
+      "createdAt": "2024-03-01T00:00:00.000Z",
+      "updatedAt": "2024-03-01T00:00:00.000Z"
+    }
+  ]
+  ```
+
 ## Testing with Postman
 
 ### Prerequisites

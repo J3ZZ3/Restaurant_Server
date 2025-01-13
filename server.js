@@ -4,6 +4,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
 const reservationRoutes = require('./routes/reservationRoutes');
+const userReservationRoutes = require('./routes/userReservationRoutes');
 const connectDB = require('./config/mongo');
 
 const app = express();
@@ -17,6 +18,7 @@ connectDB();
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/reservations', reservationRoutes);
+app.use('/api/user/reservations', userReservationRoutes);
 
 const PORT = process.env.PORT || 5000;
 
