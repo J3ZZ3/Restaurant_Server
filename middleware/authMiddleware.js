@@ -9,6 +9,12 @@ const authMiddleware = async (req, res, next) => {
   try {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decodedToken;
+
+    // Check if the user is an admin for admin routes
+    if (req.path.includes('/admin') && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Admins only.' });
+    }
+
     next();
   } catch (error) {
     console.error('Token verification failed:', error);
