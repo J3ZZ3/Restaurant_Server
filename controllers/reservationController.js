@@ -1,5 +1,6 @@
 const Reservation = require('../models/reservationModel');
 const Restaurant = require('../models/restaurantModel');
+const Payment = require('../models/paymentModel');
 
 // Create a new reservation
 exports.createReservation = async (req, res) => {
@@ -13,10 +14,25 @@ exports.createReservation = async (req, res) => {
       numberOfGuests,
       name
     });
-    res.status(201).json({ message: 'Reservation created successfully', reservation });
+
+    // Create a payment record after reservation
+    const payment = await Payment.create({
+      userId: req.user.id,
+      reservationId: reservation._id,
+      amount: calculateAmount(numberOfGuests), // Implement this function based on your pricing logic
+      status: 'pending',
+    });
+
+    res.status(201).json({ message: 'Reservation created successfully', reservation, payment });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
+};
+
+// Function to calculate amount based on number of guests
+const calculateAmount = (numberOfGuests) => {
+  const pricePerGuest = 20; // Example price
+  return numberOfGuests * pricePerGuest;
 };
 
 // Get reservations for the logged-in user
