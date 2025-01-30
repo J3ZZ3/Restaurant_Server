@@ -5,8 +5,11 @@ const reservationSchema = new mongoose.Schema({
   restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
   date: { type: Date, required: true },
   timeSlot: { type: String, required: true },
+<<<<<<< HEAD
   numberOfGuests: { type: Number, required: true },
   name: { type: String, required: true },
+=======
+>>>>>>> origin/second-phase
   status: { type: String, enum: ['pending', 'confirmed', 'cancelled'], default: 'pending' },
   paymentStatus: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
   createdAt: { type: Date, default: Date.now },

@@ -1,14 +1,24 @@
+<<<<<<< HEAD
 const jwt = require("jsonwebtoken");
 
 const authMiddleware = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
+=======
+const jwt = require('jsonwebtoken');
+
+const authMiddleware = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized' });
+>>>>>>> origin/second-phase
   }
 
   try {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decodedToken;
+<<<<<<< HEAD
     next();
   } catch (error) {
     res.status(401).json({ error: "Invalid token" });
@@ -28,11 +38,22 @@ const isAdmin = (req, res, next) => {
     // Check if the user is an admin
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Access denied, admin only" });
+=======
+
+    // Check if the user is an admin for admin routes
+    if (req.path.includes('/admin') && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Admins only.' });
+>>>>>>> origin/second-phase
     }
 
     next();
   } catch (error) {
+<<<<<<< HEAD
     res.status(401).json({ error: "Invalid or expired token" });
+=======
+    console.error('Token verification failed:', error);
+    res.status(401).json({ error: 'Invalid token' });
+>>>>>>> origin/second-phase
   }
 };
 
