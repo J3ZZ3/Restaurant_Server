@@ -1,11 +1,14 @@
 const Payment = require('../models/paymentModel');
 const Reservation = require('../models/reservationModel');
+const axios = require('axios');
+const md5 = require('md5');
 
 // Create a new payment
 exports.createPayment = async (req, res) => {
   const { reservationId, amount } = req.body;
   try {
     const payment = await Payment.create({
+      userId: req.user.id, // Ensure userId is set
       reservationId,
       amount,
       status: 'pending', // Set initial status
@@ -37,4 +40,53 @@ exports.getAllPayments = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+};
+
+const createPayment = async (reservationId, amount) => {
+  try {
+    const response = await axios.post('https://restaurant-server-4-ydyp.onrender.com/api/payments', {
+      reservationId,
+      amount,
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Ensure you include the token
+      },
+    });
+    console.log('Payment created:', response.data);
+  } catch (error) {
+    console.error('Payment creation error:', error.response?.data || error.message);
+  }
+};
+
+// Create a new payment with PayFast
+exports.createPayFastPayment = async (req, res) => {
+    const { reservationId, amount } = req.body;
+    const payfastUrl = 'https://sandbox.payfast.co.za/eng/process'; // Use sandbox for testing
+    const payfastMerchantId = process.env.PAYFAST_MERCHANT_ID;
+    const payfastMerchantKey = process.env.PAYFAST_MERCHANT_KEY;
+    const payfastReturnUrl = 'http://yourdomain.com/payment-success'; // Update with your return URL
+    const payfastCancelUrl = 'http://yourdomain.com/payment-cancel'; // Update with your cancel URL
+
+    const params = {
+        merchant_id: payfastMerchantId,
+        merchant_key: payfastMerchantKey,
+        amount: amount,
+        item_name: 'Room Booking',
+        return_url: payfastReturnUrl,
+        cancel_url: payfastCancelUrl,
+        // Add any other required parameters
+    };
+
+    // Generate the signature
+    const signature = generatePayFastSignature(params);
+    params.signature = signature;
+
+    // Redirect to PayFast
+    res.redirect(`${payfastUrl}?${new URLSearchParams(params).toString()}`);
+};
+
+// Function to generate PayFast signature
+const generatePayFastSignature = (params) => {
+    const sortedParams = Object.keys(params).sort().map(key => `${key}=${params[key]}`).join('&');
+    return md5(sortedParams + process.env.PAYFAST_SECRET); // Use your secret key
 }; 
