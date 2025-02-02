@@ -71,7 +71,7 @@ exports.createPayFastPayment = async (req, res) => {
         merchant_id: payfastMerchantId,
         merchant_key: payfastMerchantKey,
         amount: amount,
-        item_name: 'Room Booking',
+        item_name: 'Restaurant Reservation',
         return_url: payfastReturnUrl,
         cancel_url: payfastCancelUrl,
         // Add any other required parameters

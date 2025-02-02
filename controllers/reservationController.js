@@ -7,7 +7,7 @@ exports.createReservation = async (req, res) => {
   const { restaurantId, date, timeSlot, numberOfGuests, name } = req.body;
   try {
     // Ensure payment is successful before creating a reservation
-    const paymentStatus = await checkPaymentStatus(req.body.paymentId); // Implement this function
+    const paymentStatus = await checkPaymentStatus(req.body.paymentId); // Ensure this function is implemented correctly
     if (paymentStatus !== 'completed') {
       return res.status(400).json({ error: 'Payment not completed' });
     }
