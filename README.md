@@ -1,5 +1,6 @@
 # API Documentation
 
+server for res
 ## Base URL
 `http://localhost:5000`
 
