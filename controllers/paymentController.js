@@ -60,7 +60,7 @@ const createPayment = async (reservationId, amount) => {
 
 // Create a new payment with PayFast
 exports.createPayFastPayment = async (req, res) => {
-    const { reservationId, amount } = req.body;
+    const { amount } = req.body; // Get amount from request
     const payfastUrl = 'https://sandbox.payfast.co.za/eng/process'; // Use sandbox for testing
     const payfastMerchantId = process.env.PAYFAST_MERCHANT_ID;
     const payfastMerchantKey = process.env.PAYFAST_MERCHANT_KEY;
@@ -74,15 +74,15 @@ exports.createPayFastPayment = async (req, res) => {
         item_name: 'Restaurant Reservation',
         return_url: payfastReturnUrl,
         cancel_url: payfastCancelUrl,
-        // Add any other required parameters
     };
 
     // Generate the signature
     const signature = generatePayFastSignature(params);
     params.signature = signature;
 
-    // Redirect to PayFast
-    res.redirect(`${payfastUrl}?${new URLSearchParams(params).toString()}`);
+    // Return the payment URL
+    const paymentUrl = `${payfastUrl}?${new URLSearchParams(params).toString()}`;
+    res.status(200).json({ paymentUrl }); // Send payment URL back to client
 };
 
 // Function to generate PayFast signature
