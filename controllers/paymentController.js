@@ -89,4 +89,15 @@ exports.createPayFastPayment = async (req, res) => {
 const generatePayFastSignature = (params) => {
     const sortedParams = Object.keys(params).sort().map(key => `${key}=${params[key]}`).join('&');
     return md5(sortedParams + process.env.PAYFAST_SECRET); // Use your secret key
+};
+
+exports.updatePaymentStatus = async (req, res) => {
+  const { paymentId, status } = req.body; // Expect paymentId and new status in the request body
+  try {
+    const payment = await Payment.findByIdAndUpdate(paymentId, { status }, { new: true });
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    res.status(200).json(payment);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 }; 

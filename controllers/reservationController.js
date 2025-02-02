@@ -20,6 +20,15 @@ exports.createReservation = async (req, res) => {
       numberOfGuests,
       name
     });
+
+    // After creating a reservation, create a payment with status 'pending'
+    const payment = await Payment.create({
+      userId: req.user.id,
+      reservationId: reservation._id,
+      amount: calculateAmount(numberOfGuests),
+      status: 'pending' // Set initial status to pending
+    });
+
     res.status(201).json(reservation);
   } catch (error) {
     res.status(500).json({ error: error.message });
