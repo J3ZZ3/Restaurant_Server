@@ -6,11 +6,8 @@ const Payment = require('../models/paymentModel');
 exports.createReservation = async (req, res) => {
   const { restaurantId, date, timeSlot, numberOfGuests, name } = req.body;
   try {
-    // Ensure payment is successful before creating a reservation
-    const paymentStatus = await checkPaymentStatus(req.body.paymentId); // Ensure this function is implemented correctly
-    if (paymentStatus !== 'completed') {
-      return res.status(400).json({ error: 'Payment not completed' });
-    }
+    // Set payment status to 'pay on arrival'
+    const paymentStatus = 'pay on arrival'; // Set the payment status directly
 
     const reservation = await Reservation.create({ 
       userId: req.user.id, 
@@ -18,15 +15,16 @@ exports.createReservation = async (req, res) => {
       date, 
       timeSlot, 
       numberOfGuests,
-      name
+      name,
+      paymentStatus // Include payment status in the reservation
     });
 
-    // After creating a reservation, create a payment with status 'pending'
+    // Create a payment record with status 'pay on arrival'
     const payment = await Payment.create({
       userId: req.user.id,
       reservationId: reservation._id,
       amount: calculateAmount(numberOfGuests),
-      status: 'pending' // Set initial status to pending
+      status: paymentStatus // Set payment status to 'pay on arrival'
     });
 
     res.status(201).json(reservation);

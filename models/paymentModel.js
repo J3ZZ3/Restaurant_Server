@@ -4,7 +4,7 @@ const paymentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation', required: true },
   amount: { type: Number, required: true },
-  status: { type: String, enum: ['pending', 'paid'], default: 'pending' },
+  status: { type: String, enum: ['pending', 'paid', 'pay on arrival'], default: 'pending' }, // Added 'pay on arrival'
   transactionId: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
@@ -12,4 +12,4 @@ const paymentSchema = new mongoose.Schema({
 
 const Payment = mongoose.model('Payment', paymentSchema);
 
-module.exports = Payment; 
+module.exports = Payment;

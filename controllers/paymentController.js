@@ -11,7 +11,7 @@ exports.createPayment = async (req, res) => {
       userId: req.user.id, // Ensure userId is set
       reservationId,
       amount,
-      status: 'pending', // Set initial status
+      status: 'pay on arrival', // Set initial status to 'pay on arrival'
     });
     res.status(201).json({ message: 'Payment created successfully', payment });
   } catch (error) {

@@ -8,7 +8,7 @@ const reservationSchema = new mongoose.Schema({
   numberOfGuests: { type: Number, required: true },
   name: { type: String, required: true },
   status: { type: String, enum: ['pending', 'confirmed', 'cancelled'], default: 'pending' },
-  paymentStatus: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
+  paymentStatus: { type: String, enum: ['pending', 'completed', 'failed', 'pay on arrival'], default: 'pending' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
