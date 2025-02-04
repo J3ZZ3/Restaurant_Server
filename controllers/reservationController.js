@@ -1,9 +1,9 @@
 const Reservation = require('../models/reservationModel');
 const Restaurant = require('../models/restaurantModel');
 
-// Create a new reservation
+// Update the createReservation function
 exports.createReservation = async (req, res) => {
-  const { restaurantId, date, timeSlot, numberOfGuests, name } = req.body;
+  const { restaurantId, date, timeSlot, numberOfGuests, name, paymentStatus } = req.body;
   try {
     const reservation = await Reservation.create({ 
       userId: req.user.id, 
@@ -11,11 +11,30 @@ exports.createReservation = async (req, res) => {
       date, 
       timeSlot, 
       numberOfGuests,
-      name
+      name,
+      paymentStatus: paymentStatus || 'pending'
     });
     res.status(201).json({ message: 'Reservation created successfully', reservation });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+// Add a new function to update payment status
+exports.updatePaymentStatus = async (req, res) => {
+  try {
+    const { reservationId, paymentStatus } = req.body;
+    const reservation = await Reservation.findByIdAndUpdate(
+      reservationId,
+      { paymentStatus },
+      { new: true }
+    );
+    if (!reservation) {
+      return res.status(404).json({ error: 'Reservation not found' });
+    }
+    res.status(200).json({ message: 'Payment status updated', reservation });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
