@@ -13,6 +13,10 @@ const client = new paypal.core.PayPalHttpClient(environment);
 const createPayment = async (req, res) => {
     const { amount, reservationId } = req.body;
 
+    if (!amount || !reservationId) {
+        return res.status(400).json({ error: 'Amount and reservationId are required' });
+    }
+
     console.log('Creating payment with amount:', amount);
 
     const request = new paypal.orders.OrdersCreateRequest();
