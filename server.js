@@ -22,7 +22,6 @@ app.use('/api/reservations', reservationRoutes);
 app.use('/api/user/reservations', userReservationRoutes);
 app.use('/api/payments', paymentRoutes);
 
-
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
