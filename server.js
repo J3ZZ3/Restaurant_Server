@@ -7,10 +7,39 @@ const reservationRoutes = require('./routes/reservationRoutes');
 const userReservationRoutes = require('./routes/userReservationRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const connectDB = require('./config/mongo');
-
+const bodyParser = require('body-parser');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const app = express();
+
 app.use(cors());
 app.use(express.json());
+app.use(bodyParser.json());
+
+app.post('/payment-sheet', async (req, res) => {
+  // Use an existing Customer ID if this is a returning customer.
+  const customer = await stripe.customers.create();
+  const ephemeralKey = await stripe.ephemeralKeys.create(
+    {customer: customer.id},
+    {apiVersion: '2025-01-27.acacia'}
+  );
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: amount,
+    currency: 'usd',
+    customer: customer.id,
+    // In the latest version of the API, specifying the `automatic_payment_methods` parameter
+    // is optional because Stripe enables its functionality by default.
+    automatic_payment_methods: {
+      enabled: true,
+    },
+  });
+
+  res.json({
+    paymentIntent: paymentIntent.client_secret,
+    ephemeralKey: ephemeralKey.secret,
+    customer: customer.id,
+    publishableKey: process.env.STRIPE_SECRET_KEY
+  });
+});
 
 // Connect to MongoDB
 connectDB();
