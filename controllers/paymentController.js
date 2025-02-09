@@ -1,13 +1,5 @@
 const Payment = require('../models/paymentModel');
-const paypal = require('@paypal/checkout-server-sdk');
-
-// Create PayPal client
-const clientId = process.env.PAYPAL_CLIENT_ID;
-const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-const environment = process.env.PAYPAL_MODE === 'live' 
-    ? new paypal.core.LiveEnvironment(clientId, clientSecret) 
-    : new paypal.core.SandboxEnvironment(clientId, clientSecret);
-const client = new paypal.core.PayPalHttpClient(environment);
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Initialize Stripe
 
 // Create payment
 const createPayment = async (req, res) => {
@@ -19,20 +11,24 @@ const createPayment = async (req, res) => {
 
     console.log('Creating payment with amount:', amount);
 
-    const request = new paypal.orders.OrdersCreateRequest();
-    request.requestBody({
-        intent: 'CAPTURE',
-        purchase_units: [{
-            amount: {
-                currency_code: 'USD',
-                value: amount,
-            },
-        }],
-    });
-
     try {
-        const order = await client.execute(request);
-        res.status(200).json({ approvalUrl: order.result.links.find(link => link.rel === 'approve').href });
+        // Create a payment intent with the order amount and currency
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: amount, // Amount in cents
+            currency: 'usd',
+            metadata: { reservationId: reservationId }, // Attach reservation ID for reference
+        });
+
+        // Save payment details to the database
+        const payment = new Payment({
+            reservationId,
+            amount,
+            status: 'pending',
+            transactionId: paymentIntent.id,
+        });
+        await payment.save();
+
+        res.status(200).json({ clientSecret: paymentIntent.client_secret }); // Return client secret for the frontend
     } catch (err) {
         console.error('Payment creation error:', err);
         res.status(500).json({ error: err.message });
