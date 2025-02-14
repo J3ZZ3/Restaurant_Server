@@ -1,41 +1,50 @@
-const Payment = require('../models/paymentModel');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Initialize Stripe
+const Payment = require('../models/paymentModel');
+const Reservation = require('../models/reservationModel');
 
-// Create payment
-const createPayment = async (req, res) => {
+// Create a payment intent
+const createPaymentIntent = async (req, res) => {
     const { amount, reservationId } = req.body;
 
     if (!amount || !reservationId) {
         return res.status(400).json({ error: 'Amount and reservationId are required' });
     }
 
-    console.log('Creating payment with amount:', amount);
-
     try {
-        // Create a payment intent with the order amount and currency
+        // Create the payment intent with Stripe
         const paymentIntent = await stripe.paymentIntents.create({
-            amount: amount, // Amount in cents
+            amount: amount,
             currency: 'usd',
-            metadata: { reservationId: reservationId }, // Attach reservation ID for reference
+            metadata: {
+                reservationId: reservationId,
+                userId: req.user._id.toString()
+            }
         });
 
-        // Save payment details to the database
+        // Create a payment record in our database
         const payment = new Payment({
-            reservationId,
-            amount,
+            reservationId: reservationId,
+            amount: amount,
             status: 'pending',
-            transactionId: paymentIntent.id,
+            transactionId: paymentIntent.id
         });
         await payment.save();
 
-        res.status(200).json({ clientSecret: paymentIntent.client_secret }); // Return client secret for the frontend
-    } catch (err) {
-        console.error('Payment creation error:', err);
-        res.status(500).json({ error: err.message });
+        // Update reservation payment status
+        await Reservation.findByIdAndUpdate(reservationId, {
+            paymentStatus: 'processing',
+            paymentIntentId: paymentIntent.id
+        });
+
+        res.status(200).json({ 
+            clientSecret: paymentIntent.client_secret,
+            paymentIntentId: paymentIntent.id
+        });
+    } catch (error) {
+        console.error('Error creating payment intent:', error);
+        res.status(500).json({ error: error.message });
     }
 };
 
 // Export the function
-module.exports = { createPayment };
-
-
+module.exports = { createPaymentIntent }; 
