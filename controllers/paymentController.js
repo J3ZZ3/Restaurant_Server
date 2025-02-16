@@ -3,34 +3,26 @@ const Payment = require('../models/paymentModel');
 const Reservation = require('../models/reservationModel');
 
 // Create a payment intent
-const createPaymentIntent = async (req, res) => {
+exports.createPaymentIntent = async (req, res) => {
     try {
         const { amount, reservationId } = req.body;
 
-        // Create payment intent
+        // Create a payment intent with Stripe
         const paymentIntent = await stripe.paymentIntents.create({
-            amount: amount,
+            amount: amount * 100, // Convert to cents
             currency: 'usd',
-            metadata: {
-                reservationId,
-                userId: req.user._id.toString()
-            }
+            metadata: { reservationId }
         });
 
-        // Create payment record
+        // Create a payment record in our database
         await Payment.create({
             reservationId,
-            amount: amount / 100, // Convert back to dollars for our records
+            amount,
             status: 'pending',
             transactionId: paymentIntent.id
         });
 
-        // Update reservation status
-        await Reservation.findByIdAndUpdate(reservationId, {
-            paymentStatus: 'processing'
-        });
-
-        res.json({
+        res.status(200).json({
             clientSecret: paymentIntent.client_secret
         });
     } catch (error) {
@@ -39,38 +31,72 @@ const createPaymentIntent = async (req, res) => {
     }
 };
 
-// Export the function
-module.exports = { createPaymentIntent };
-
+// Handle Stripe webhook events
 exports.handleWebhook = async (req, res) => {
     const sig = req.headers['stripe-signature'];
-    let event;
 
     try {
-        event = stripe.webhooks.constructEvent(
+        const event = stripe.webhooks.constructEvent(
             req.body,
             sig,
             process.env.STRIPE_WEBHOOK_SECRET
         );
-    } catch (err) {
-        return res.status(400).send(`Webhook Error: ${err.message}`);
+
+        // Handle the event
+        switch (event.type) {
+            case 'payment_intent.succeeded':
+                const paymentIntent = event.data.object;
+                
+                // Update payment status in database
+                await Payment.findOneAndUpdate(
+                    { transactionId: paymentIntent.id },
+                    { 
+                        status: 'completed',
+                        updatedAt: Date.now()
+                    }
+                );
+
+                // Update reservation payment status
+                if (paymentIntent.metadata.reservationId) {
+                    await Reservation.findByIdAndUpdate(
+                        paymentIntent.metadata.reservationId,
+                        { 
+                            paymentStatus: 'completed',
+                            status: 'confirmed',
+                            updatedAt: Date.now()
+                        }
+                    );
+                }
+                break;
+
+            case 'payment_intent.payment_failed':
+                const failedPayment = event.data.object;
+                
+                // Update payment status in database
+                await Payment.findOneAndUpdate(
+                    { transactionId: failedPayment.id },
+                    { 
+                        status: 'failed',
+                        updatedAt: Date.now()
+                    }
+                );
+
+                // Update reservation payment status
+                if (failedPayment.metadata.reservationId) {
+                    await Reservation.findByIdAndUpdate(
+                        failedPayment.metadata.reservationId,
+                        { 
+                            paymentStatus: 'failed',
+                            updatedAt: Date.now()
+                        }
+                    );
+                }
+                break;
+        }
+
+        res.json({ received: true });
+    } catch (error) {
+        console.error('Webhook error:', error);
+        res.status(400).json({ error: error.message });
     }
-
-    // Handle successful payment
-    if (event.type === 'payment_intent.succeeded') {
-        const paymentIntent = event.data.object;
-        const { reservationId } = paymentIntent.metadata;
-
-        await Promise.all([
-            Payment.findOneAndUpdate(
-                { transactionId: paymentIntent.id },
-                { status: 'completed' }
-            ),
-            Reservation.findByIdAndUpdate(reservationId, {
-                paymentStatus: 'completed'
-            })
-        ]);
-    }
-
-    res.json({ received: true });
 }; 
