@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { createPaymentIntent, handleWebhook } = require('../controllers/PaymentController');
+const { createPaypalOrder, capturePaypalOrder } = require('../controllers/paymentController');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// Define your routes
-router.post('/create-payment-intent', authMiddleware, createPaymentIntent);
-router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+// Define PayPal routes
+router.post('/create-order', authMiddleware, createPaypalOrder);
+router.post('/capture-order', authMiddleware, capturePaypalOrder);
 
 module.exports = router; 

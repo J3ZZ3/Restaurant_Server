@@ -1,102 +1,113 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Initialize Stripe
+const paypal = require('@paypal/checkout-server-sdk');
 const Payment = require('../models/paymentModel');
 const Reservation = require('../models/reservationModel');
 
-// Create a payment intent
-exports.createPaymentIntent = async (req, res) => {
+// Configure PayPal environment
+let environment = new paypal.core.SandboxEnvironment(
+    process.env.PAYPAL_CLIENT_ID,
+    process.env.PAYPAL_CLIENT_SECRET
+);
+let client = new paypal.core.PayPalHttpClient(environment);
+
+// Create PayPal order
+exports.createPaypalOrder = async (req, res) => {
     try {
         const { amount, reservationId } = req.body;
 
-        // Create a payment intent with Stripe
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: amount * 100, // Convert to cents
-            currency: 'usd',
-            metadata: { reservationId }
+        const request = new paypal.orders.OrdersCreateRequest();
+        request.prefer("return=representation");
+        request.requestBody({
+            intent: 'CAPTURE',
+            purchase_units: [{
+                amount: {
+                    currency_code: 'USD',
+                    value: amount.toString()
+                },
+                description: `Reservation ID: ${reservationId}`
+            }]
         });
+
+        const order = await client.execute(request);
 
         // Create a payment record in our database
         await Payment.create({
             reservationId,
             amount,
             status: 'pending',
-            transactionId: paymentIntent.id
+            transactionId: order.result.id
         });
 
         res.status(200).json({
-            clientSecret: paymentIntent.client_secret
+            orderId: order.result.id
         });
     } catch (error) {
-        console.error('Payment intent error:', error);
+        console.error('PayPal order creation error:', error);
         res.status(500).json({ error: error.message });
     }
 };
 
-// Handle Stripe webhook events
-exports.handleWebhook = async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-
+// Capture PayPal payment
+exports.capturePaypalOrder = async (req, res) => {
     try {
-        const event = stripe.webhooks.constructEvent(
-            req.body,
-            sig,
-            process.env.STRIPE_WEBHOOK_SECRET
-        );
+        const { orderId, reservationId } = req.body;
 
-        // Handle the event
-        switch (event.type) {
-            case 'payment_intent.succeeded':
-                const paymentIntent = event.data.object;
-                
-                // Update payment status in database
-                await Payment.findOneAndUpdate(
-                    { transactionId: paymentIntent.id },
-                    { 
-                        status: 'completed',
-                        updatedAt: Date.now()
-                    }
-                );
+        const request = new paypal.orders.OrdersCaptureRequest(orderId);
+        request.requestBody({});
 
-                // Update reservation payment status
-                if (paymentIntent.metadata.reservationId) {
-                    await Reservation.findByIdAndUpdate(
-                        paymentIntent.metadata.reservationId,
-                        { 
-                            paymentStatus: 'completed',
-                            status: 'confirmed',
-                            updatedAt: Date.now()
-                        }
-                    );
+        const capture = await client.execute(request);
+
+        if (capture.result.status === 'COMPLETED') {
+            // Update payment status in database
+            await Payment.findOneAndUpdate(
+                { transactionId: orderId },
+                { 
+                    status: 'completed',
+                    updatedAt: Date.now()
                 }
-                break;
+            );
 
-            case 'payment_intent.payment_failed':
-                const failedPayment = event.data.object;
-                
-                // Update payment status in database
-                await Payment.findOneAndUpdate(
-                    { transactionId: failedPayment.id },
-                    { 
-                        status: 'failed',
-                        updatedAt: Date.now()
-                    }
-                );
-
-                // Update reservation payment status
-                if (failedPayment.metadata.reservationId) {
-                    await Reservation.findByIdAndUpdate(
-                        failedPayment.metadata.reservationId,
-                        { 
-                            paymentStatus: 'failed',
-                            updatedAt: Date.now()
-                        }
-                    );
+            // Update reservation status
+            await Reservation.findByIdAndUpdate(
+                reservationId,
+                { 
+                    paymentStatus: 'completed',
+                    status: 'confirmed',
+                    updatedAt: Date.now()
                 }
-                break;
+            );
+
+            res.status(200).json({
+                status: 'success',
+                orderId: capture.result.id
+            });
+        } else {
+            throw new Error('Payment not completed');
+        }
+    } catch (error) {
+        console.error('PayPal capture error:', error);
+        
+        // Update payment status to failed
+        if (req.body.orderId) {
+            await Payment.findOneAndUpdate(
+                { transactionId: req.body.orderId },
+                { 
+                    status: 'failed',
+                    updatedAt: Date.now()
+                }
+            );
         }
 
-        res.json({ received: true });
-    } catch (error) {
-        console.error('Webhook error:', error);
-        res.status(400).json({ error: error.message });
+        // Update reservation status
+        if (req.body.reservationId) {
+            await Reservation.findByIdAndUpdate(
+                req.body.reservationId,
+                { 
+                    paymentStatus: 'failed',
+                    updatedAt: Date.now()
+                }
+            );
+        }
+
+        res.status(500).json({ error: error.message });
     }
 }; 
