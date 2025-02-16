@@ -3,31 +3,28 @@ const User = require('../models/userModel');
 
 const authMiddleware = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    // Get token from header
+    const authHeader = req.headers.authorization;
     
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided or invalid format' });
     }
 
-    // Verify and decode the token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const token = authHeader.split(' ')[1];
     
-    // Find the user in the database
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Decoded token:', decoded); // Debug log
+    
+    // Find user
     const user = await User.findById(decoded.id).select('-password');
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    // Add user information to the request
-    req.user = {
-      id: user._id.toString(),
-      role: user.role,
-      email: user.email,
-      name: user.name
-    };
-    
-    // Log for debugging
-    console.log('Authenticated user:', req.user);
+    // Add user to request
+    req.user = user;
+    console.log('User authenticated:', user._id); // Debug log
 
     // Check if the user is an admin for admin routes
     if (req.path.includes('/admin') && req.user.role !== 'admin') {
@@ -37,7 +34,13 @@ const authMiddleware = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.status(401).json({ error: 'Invalid or expired token' });
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired' });
+    }
+    res.status(401).json({ error: 'Authentication failed' });
   }
 };
 

@@ -5,6 +5,13 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['user', 'admin', 'restaurant_owner'], default: 'user' },
+  phoneNumber: { type: String },
+  address: { type: String },
+  dateOfBirth: { type: Date },
+  preferences: {
+    dietaryRestrictions: [String],
+    favoritesCuisine: [String],
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
