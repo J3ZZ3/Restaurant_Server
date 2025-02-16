@@ -103,7 +103,7 @@ exports.login = async (req, res) => {
 // Get logged-in user profile
 exports.getUserProfile = async (req, res) => {
   try {
-    console.log('Getting profile for user:', req.user._id); // Debug log
+    console.log('Getting profile for user:', req.user._id);
     
     const user = await User.findById(req.user._id)
       .select('-password')
@@ -113,12 +113,8 @@ exports.getUserProfile = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.status(200).json({
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    });
+    // Return all user fields except password
+    res.status(200).json(user);
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Failed to fetch profile' });
@@ -127,11 +123,43 @@ exports.getUserProfile = async (req, res) => {
 
 // Update logged-in user profile
 exports.updateUserProfile = async (req, res) => {
-  const { name, email } = req.body;
   try {
-    const user = await User.findByIdAndUpdate(req.user.id, { name, email }, { new: true }).select('-password');
+    const { 
+      name, 
+      email, 
+      phoneNumber, 
+      address, 
+      preferences 
+    } = req.body;
+
+    // Create update object with all fields
+    const updateData = {
+      name,
+      email,
+      phoneNumber,
+      address,
+      preferences,
+      updatedAt: Date.now()
+    };
+
+    // Remove undefined fields
+    Object.keys(updateData).forEach(key => 
+      updateData[key] === undefined && delete updateData[key]
+    );
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id, 
+      updateData,
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     res.status(200).json(user);
   } catch (error) {
+    console.error('Update profile error:', error);
     res.status(500).json({ error: error.message });
   }
 };
