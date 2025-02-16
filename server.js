@@ -8,6 +8,7 @@ const userReservationRoutes = require('./routes/userReservationRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const connectDB = require('./config/mongo');
 const bodyParser = require('body-parser');
+const feedbackRoutes = require('./routes/feedbackRoutes');
 const app = express();
 
 app.use(cors());
@@ -24,6 +25,7 @@ app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/user/reservations', userReservationRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 const PORT = process.env.PORT || 5000;
 
