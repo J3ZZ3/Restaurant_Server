@@ -3,19 +3,56 @@ const Restaurant = require('../models/restaurantModel');
 
 // Update the createReservation function
 exports.createReservation = async (req, res) => {
-  const { restaurantId, date, timeSlot, numberOfGuests, name, paymentStatus } = req.body;
+  const { 
+    restaurantId, 
+    date, 
+    timeSlot, 
+    guests,
+    name,
+    email,
+    phone,
+    occasion,
+    specialRequests,
+    seatingPreference,
+    dietaryRestrictions,
+    tablePreference
+  } = req.body;
+
   try {
-    const reservation = await Reservation.create({ 
-      userId: req.user.id, 
-      restaurantId, 
-      date, 
-      timeSlot, 
-      numberOfGuests,
+    // Validate restaurant exists
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    // Create reservation with all new fields
+    const reservation = await Reservation.create({
+      userId: req.user.id,
+      restaurantId,
+      date,
+      timeSlot,
+      guests,
       name,
-      paymentStatus: paymentStatus || 'pending'
+      email,
+      phone,
+      occasion,
+      specialRequests,
+      seatingPreference,
+      dietaryRestrictions,
+      tablePreference,
+      status: 'pending',
+      paymentStatus: 'pending'
     });
-    res.status(201).json({ message: 'Reservation created successfully', reservation });
+
+    // Populate restaurant details
+    await reservation.populate('restaurantId');
+
+    res.status(201).json({
+      message: 'Reservation created successfully',
+      reservation
+    });
   } catch (error) {
+    console.error('Reservation creation error:', error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -41,12 +78,14 @@ exports.updatePaymentStatus = async (req, res) => {
 // Get reservations for the logged-in user
 exports.getUserReservations = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const reservations = await Reservation.find({ userId })
-      .populate('restaurantId');
+    const reservations = await Reservation.find({ userId: req.user.id })
+      .populate('restaurantId')
+      .sort({ date: 1, timeSlot: 1 });
+    
     res.status(200).json(reservations);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching reservations' });
+    console.error('Get reservations error:', error);
+    res.status(500).json({ error: 'Failed to fetch reservations' });
   }
 };
 
@@ -64,10 +103,46 @@ exports.getReservationById = async (req, res) => {
 // Update reservation
 exports.updateReservation = async (req, res) => {
   try {
-    const reservation = await Reservation.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!reservation) return res.status(404).json({ error: 'Reservation not found' });
-    res.status(200).json({ message: 'Reservation updated successfully', reservation });
+    const {
+      guests,
+      date,
+      timeSlot,
+      occasion,
+      specialRequests,
+      seatingPreference,
+      dietaryRestrictions,
+      tablePreference
+    } = req.body;
+
+    const reservation = await Reservation.findOneAndUpdate(
+      { 
+        _id: req.params.id,
+        userId: req.user.id // Ensure user owns the reservation
+      },
+      {
+        guests,
+        date,
+        timeSlot,
+        occasion,
+        specialRequests,
+        seatingPreference,
+        dietaryRestrictions,
+        tablePreference,
+        updatedAt: Date.now()
+      },
+      { new: true }
+    ).populate('restaurantId');
+
+    if (!reservation) {
+      return res.status(404).json({ error: 'Reservation not found' });
+    }
+
+    res.status(200).json({
+      message: 'Reservation updated successfully',
+      reservation
+    });
   } catch (error) {
+    console.error('Update reservation error:', error);
     res.status(500).json({ error: error.message });
   }
 };
