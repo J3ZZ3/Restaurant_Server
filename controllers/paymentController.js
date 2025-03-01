@@ -24,7 +24,11 @@ exports.createPaypalOrder = async (req, res) => {
                     value: amount.toString()
                 },
                 description: `Reservation ID: ${reservationId}`
-            }]
+            }],
+            application_context: {
+                return_url: 'https://success',
+                cancel_url: 'https://cancel'
+            }
         });
 
         const order = await client.execute(request);
@@ -38,7 +42,8 @@ exports.createPaypalOrder = async (req, res) => {
         });
 
         res.status(200).json({
-            orderId: order.result.id
+            orderId: order.result.id,
+            approvalUrl: order.result.links.find(link => link.rel === 'approve').href
         });
     } catch (error) {
         console.error('PayPal order creation error:', error);
