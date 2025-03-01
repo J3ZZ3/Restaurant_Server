@@ -14,6 +14,12 @@ exports.createPaypalOrder = async (req, res) => {
     try {
         const { amount, reservationId } = req.body;
 
+        if (!amount || !reservationId) {
+            return res.status(400).json({ 
+                message: 'Amount and reservation ID are required' 
+            });
+        }
+
         const request = new paypal.orders.OrdersCreateRequest();
         request.prefer("return=representation");
         request.requestBody({
@@ -21,7 +27,7 @@ exports.createPaypalOrder = async (req, res) => {
             purchase_units: [{
                 amount: {
                     currency_code: 'USD',
-                    value: amount.toString()
+                    value: amount.toFixed(2) // Ensure proper decimal formatting
                 },
                 description: `Reservation ID: ${reservationId}`
             }]
@@ -30,7 +36,7 @@ exports.createPaypalOrder = async (req, res) => {
         const order = await client.execute(request);
 
         // Create a payment record in our database
-        await Payment.create({
+        const payment = await Payment.create({
             reservationId,
             amount,
             status: 'pending',
@@ -38,11 +44,15 @@ exports.createPaypalOrder = async (req, res) => {
         });
 
         res.status(200).json({
-            orderId: order.result.id
+            orderId: order.result.id,
+            paymentId: payment._id
         });
     } catch (error) {
         console.error('PayPal order creation error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            message: 'Failed to create payment order',
+            error: error.message 
+        });
     }
 };
 
@@ -50,6 +60,12 @@ exports.createPaypalOrder = async (req, res) => {
 exports.capturePaypalOrder = async (req, res) => {
     try {
         const { orderId, reservationId } = req.body;
+
+        if (!orderId || !reservationId) {
+            return res.status(400).json({ 
+                message: 'Order ID and reservation ID are required' 
+            });
+        }
 
         const request = new paypal.orders.OrdersCaptureRequest(orderId);
         request.requestBody({});
@@ -86,28 +102,34 @@ exports.capturePaypalOrder = async (req, res) => {
     } catch (error) {
         console.error('PayPal capture error:', error);
         
-        // Update payment status to failed
-        if (req.body.orderId) {
-            await Payment.findOneAndUpdate(
-                { transactionId: req.body.orderId },
-                { 
-                    status: 'failed',
-                    updatedAt: Date.now()
-                }
-            );
+        // Update payment and reservation status to failed
+        try {
+            if (req.body.orderId) {
+                await Payment.findOneAndUpdate(
+                    { transactionId: req.body.orderId },
+                    { 
+                        status: 'failed',
+                        updatedAt: Date.now()
+                    }
+                );
+            }
+
+            if (req.body.reservationId) {
+                await Reservation.findByIdAndUpdate(
+                    req.body.reservationId,
+                    { 
+                        paymentStatus: 'failed',
+                        updatedAt: Date.now()
+                    }
+                );
+            }
+        } catch (updateError) {
+            console.error('Error updating status:', updateError);
         }
 
-        // Update reservation status
-        if (req.body.reservationId) {
-            await Reservation.findByIdAndUpdate(
-                req.body.reservationId,
-                { 
-                    paymentStatus: 'failed',
-                    updatedAt: Date.now()
-                }
-            );
-        }
-
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            message: 'Payment capture failed',
+            error: error.message 
+        });
     }
 }; 
