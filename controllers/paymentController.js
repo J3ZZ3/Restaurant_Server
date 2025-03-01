@@ -54,10 +54,20 @@ exports.createPaypalOrder = async (req, res) => {
 // Capture PayPal payment
 exports.capturePaypalOrder = async (req, res) => {
     try {
-        const { orderId, reservationId } = req.body;
+        const { orderId, payerId, reservationId } = req.body;
+
+        if (!orderId || !payerId) {
+            throw new Error('Missing required payment parameters');
+        }
 
         const request = new paypal.orders.OrdersCaptureRequest(orderId);
-        request.requestBody({});
+        request.requestBody({
+            payment_source: {
+                paypal: {
+                    payer_id: payerId
+                }
+            }
+        });
 
         const capture = await client.execute(request);
 
@@ -67,7 +77,8 @@ exports.capturePaypalOrder = async (req, res) => {
                 { transactionId: orderId },
                 { 
                     status: 'completed',
-                    updatedAt: Date.now()
+                    updatedAt: Date.now(),
+                    payerId: payerId // Store PayerID for reference
                 }
             );
 
@@ -97,7 +108,8 @@ exports.capturePaypalOrder = async (req, res) => {
                 { transactionId: req.body.orderId },
                 { 
                     status: 'failed',
-                    updatedAt: Date.now()
+                    updatedAt: Date.now(),
+                    error: error.message
                 }
             );
         }
@@ -113,6 +125,9 @@ exports.capturePaypalOrder = async (req, res) => {
             );
         }
 
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            error: error.message,
+            details: error.details || 'No additional details available'
+        });
     }
 }; 
