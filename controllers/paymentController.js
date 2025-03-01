@@ -26,8 +26,8 @@ exports.createPaypalOrder = async (req, res) => {
                 description: `Reservation ID: ${reservationId}`
             }],
             application_context: {
-                return_url: 'https://success',
-                cancel_url: 'https://cancel'
+                return_url: 'https://priority-i4dq.onrender.com/payment/success',
+                cancel_url: 'https://priority-i4dq.onrender.com/payment/cancel'
             }
         });
 

@@ -27,6 +27,15 @@ app.use('/api/user/reservations', userReservationRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/feedback', feedbackRoutes);
 
+// Add these routes before your other route definitions
+app.get('/payment/success', (req, res) => {
+    res.send('Payment successful! You can close this window.');
+});
+
+app.get('/payment/cancel', (req, res) => {
+    res.send('Payment cancelled! You can close this window.');
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
