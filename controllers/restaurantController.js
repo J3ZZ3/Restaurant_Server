@@ -30,8 +30,7 @@ exports.addRestaurant = [
       maxGroupSize,
       reservationSlots,
       rating,
-      menu,
-      imageUrl // Accept imageUrl from the request body
+      menu
     } = req.body;
 
     try {
@@ -51,9 +50,10 @@ exports.addRestaurant = [
         seatingOptions,
         maxGroupSize,
         reservationSlots,
-        imageUrl: req.file ? req.file.path : imageUrl, // Use uploaded image URL or provided URL
+        imageUrl: req.file ? req.file.path : null, // Use uploaded image URL or null
         rating: rating || 0,
         menu: menu || [],
+        ownerId: req.user._id // Automatically set ownerId from authenticated user
       });
 
       await newRestaurant.save();

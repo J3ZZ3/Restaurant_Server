@@ -9,7 +9,10 @@ const restaurantSchema = new mongoose.Schema({
   contact: { type: String },
   imageUrl: { type: String },
   rating: { type: Number, default: 0 },
-  menu: [{ type: String }],
+  menu: [{ 
+    item: { type: String, required: true }, // Item name
+    price: { type: Number, required: true } // Item price
+  }],
   pricing: {
     basePrice: { type: Number, required: true }, // Base price per guest
     specialOccasionFee: { type: Number, default: 0 }, // Additional fee for special occasions
