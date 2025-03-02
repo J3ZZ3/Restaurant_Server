@@ -156,4 +156,44 @@ exports.deleteReservation = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+};
+
+// Add this function to your existing reservationController.js
+exports.getAvailableTimeSlots = async (req, res) => {
+    try {
+        const { restaurantId, date } = req.params;
+        const selectedDate = new Date(date);
+
+        // Get all reservations for this restaurant on the selected date
+        const existingReservations = await Reservation.find({
+            restaurantId,
+            date: {
+                $gte: new Date(selectedDate.setHours(0, 0, 0)),
+                $lt: new Date(selectedDate.setHours(23, 59, 59))
+            }
+        });
+
+        // Define restaurant operating hours (you might want to make this dynamic per restaurant)
+        const operatingHours = {
+            start: 10, // 10 AM
+            end: 22,   // 10 PM
+            interval: 30 // 30-minute intervals
+        };
+
+        // Generate all possible time slots
+        const allTimeSlots = [];
+        for (let hour = operatingHours.start; hour < operatingHours.end; hour++) {
+            allTimeSlots.push(`${hour}:00`);
+            allTimeSlots.push(`${hour}:30`);
+        }
+
+        // Filter out booked slots
+        const bookedTimes = existingReservations.map(res => res.timeSlot);
+        const availableSlots = allTimeSlots.filter(slot => !bookedTimes.includes(slot));
+
+        res.json({ availableSlots });
+    } catch (error) {
+        console.error('Error getting available time slots:', error);
+        res.status(500).json({ error: 'Failed to get available time slots' });
+    }
 }; 

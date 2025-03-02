@@ -7,6 +7,9 @@ const restaurantSchema = new mongoose.Schema({
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   description: { type: String },
   contact: { type: String },
+  imageUrl: { type: String },
+  rating: { type: Number, default: 0 },
+  menu: [{ type: String }],
   pricing: {
     basePrice: { type: Number, required: true }, // Base price per guest
     specialOccasionFee: { type: Number, default: 0 }, // Additional fee for special occasions

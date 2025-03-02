@@ -24,7 +24,13 @@ exports.createPaypalOrder = async (req, res) => {
                     value: amount.toString()
                 },
                 description: `Reservation ID: ${reservationId}`
-            }]
+            }],
+            application_context: {
+                return_url: 'https://priority-i4dq.onrender.com/payment/success',
+                cancel_url: 'https://priority-i4dq.onrender.com/payment/cancel',
+                user_action: 'PAY_NOW',
+                shipping_preference: 'NO_SHIPPING'
+            }
         });
 
         const order = await client.execute(request);

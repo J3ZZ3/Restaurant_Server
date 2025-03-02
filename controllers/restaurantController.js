@@ -1,57 +1,68 @@
 const Restaurant = require('../models/restaurantModel');
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinaryConfig');
+
+// Configure Multer storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'restaurant_images', // The folder in Cloudinary
+    allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'bmp', 'tiff', 'webp'], // Include all desired formats
+  },
+});
+
+const upload = multer({ storage: storage });
 
 // Add a new restaurant
-exports.addRestaurant = async (req, res) => {
-  const { 
-    name, 
-    location, 
-    cuisine, 
-    description, 
-    contact, 
-    pricing,
-    openingHours,
-    seatingOptions,
-    maxGroupSize,
-    reservationSlots 
-  } = req.body;
-
-  try {
-    // Validate pricing data
-    if (!pricing || !pricing.basePrice) {
-      return res.status(400).json({ error: 'Base price per guest is required' });
-    }
-
-    const restaurant = await Restaurant.create({ 
+exports.addRestaurant = [
+  upload.single('imageUrl'), // Use multer to handle the image upload
+  async (req, res) => {
+    const { 
       name, 
       location, 
       cuisine, 
-      ownerId: req.user.id, 
       description, 
-      contact,
-      pricing: {
-        basePrice: pricing.basePrice,
-        specialOccasionFee: pricing.specialOccasionFee || 0,
-        weekendSurcharge: pricing.weekendSurcharge || 0,
-        holidaySurcharge: pricing.holidaySurcharge || 0,
-        minimumSpend: pricing.minimumSpend || 0,
-        depositAmount: pricing.depositAmount || 0,
-        cancellationFee: pricing.cancellationFee || 0
-      },
+      contact, 
+      pricing,
       openingHours,
       seatingOptions,
       maxGroupSize,
-      reservationSlots
-    });
+      reservationSlots,
+      rating,
+      menu
+    } = req.body;
 
-    res.status(201).json({ 
-      message: 'Restaurant added successfully', 
-      restaurant 
-    });
-  } catch (error) {
-    console.error('Add restaurant error:', error);
-    res.status(400).json({ error: error.message });
-  }
-};
+    try {
+      // Validate pricing data
+      if (!pricing || !pricing.basePrice) {
+        return res.status(400).json({ error: 'Base price per guest is required' });
+      }
+
+      const newRestaurant = new Restaurant({
+        name,
+        location,
+        cuisine,
+        description,
+        contact,
+        pricing,
+        openingHours,
+        seatingOptions,
+        maxGroupSize,
+        reservationSlots,
+        imageUrl: req.file.path, // Get the image URL from the uploaded file
+        rating: rating || 0,
+        menu: menu || [],
+      });
+
+      await newRestaurant.save();
+      res.status(201).json({ message: 'Restaurant added successfully', restaurant: newRestaurant });
+    } catch (error) {
+      console.error('Add restaurant error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+];
 
 // Get all restaurants
 exports.getAllRestaurants = async (req, res) => {
@@ -68,7 +79,12 @@ exports.getRestaurantById = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id);
     if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
-    res.status(200).json(restaurant);
+    res.status(200).json({
+      ...restaurant.toObject(),
+      imageUrl: restaurant.imageUrl,
+      rating: restaurant.rating,
+      menu: restaurant.menu,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -87,7 +103,10 @@ exports.updateRestaurant = async (req, res) => {
       openingHours,
       seatingOptions,
       maxGroupSize,
-      reservationSlots 
+      reservationSlots,
+      imageUrl,
+      rating,
+      menu
     } = req.body;
 
     // Ensure only restaurant owner can update
@@ -113,6 +132,9 @@ exports.updateRestaurant = async (req, res) => {
         seatingOptions,
         maxGroupSize,
         reservationSlots,
+        imageUrl,
+        rating: rating || 0,
+        menu: menu || [],
         updatedAt: Date.now()
       },
       { new: true }
