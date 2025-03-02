@@ -16,7 +16,7 @@ const upload = multer({ storage: storage });
 
 // Add a new restaurant
 exports.addRestaurant = [
-  upload.single('imageUrl'), // Use multer to handle the image upload
+  upload.single('image'), // Use multer to handle the image upload
   async (req, res) => {
     const { 
       name, 
@@ -30,7 +30,8 @@ exports.addRestaurant = [
       maxGroupSize,
       reservationSlots,
       rating,
-      menu
+      menu,
+      imageUrl // Accept imageUrl from the request body
     } = req.body;
 
     try {
@@ -50,7 +51,7 @@ exports.addRestaurant = [
         seatingOptions,
         maxGroupSize,
         reservationSlots,
-        imageUrl: req.file.path, // Get the image URL from the uploaded file
+        imageUrl: req.file ? req.file.path : imageUrl, // Use uploaded image URL or provided URL
         rating: rating || 0,
         menu: menu || [],
       });
