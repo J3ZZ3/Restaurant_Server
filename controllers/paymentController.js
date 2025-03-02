@@ -24,11 +24,7 @@ exports.createPaypalOrder = async (req, res) => {
                     value: amount.toString()
                 },
                 description: `Reservation ID: ${reservationId}`
-            }],
-            application_context: {
-                return_url: 'https://priority-i4dq.onrender.com/payment/success',
-                cancel_url: 'https://priority-i4dq.onrender.com/payment/cancel'
-            }
+            }]
         });
 
         const order = await client.execute(request);
@@ -60,15 +56,14 @@ exports.capturePaypalOrder = async (req, res) => {
             throw new Error('Missing required payment parameters');
         }
 
-        const request = new paypal.orders.OrdersCaptureRequest(orderId);
-        request.requestBody({
-            payment_source: {
-                paypal: {
-                    payer_id: payerId
-                }
-            }
-        });
+        // First, verify the order exists and is pending
+        const payment = await Payment.findOne({ transactionId: orderId });
+        if (!payment) {
+            throw new Error('Payment record not found');
+        }
 
+        // Create capture request
+        const request = new paypal.orders.OrdersCaptureRequest(orderId);
         const capture = await client.execute(request);
 
         if (capture.result.status === 'COMPLETED') {
@@ -78,7 +73,7 @@ exports.capturePaypalOrder = async (req, res) => {
                 { 
                     status: 'completed',
                     updatedAt: Date.now(),
-                    payerId: payerId // Store PayerID for reference
+                    payerId: payerId
                 }
             );
 
@@ -97,7 +92,7 @@ exports.capturePaypalOrder = async (req, res) => {
                 orderId: capture.result.id
             });
         } else {
-            throw new Error('Payment not completed');
+            throw new Error('Payment capture failed');
         }
     } catch (error) {
         console.error('PayPal capture error:', error);
