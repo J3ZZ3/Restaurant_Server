@@ -45,7 +45,8 @@ exports.createReservation = async (req, res) => {
     const { 
       restaurantId, 
       date, 
-      timeSlot, 
+      timeSlot,
+      time,
       guests,
       name,
       email,
@@ -57,11 +58,14 @@ exports.createReservation = async (req, res) => {
       tablePreference
     } = req.body;
 
+    // Use timeSlot or time
+    const finalTimeSlot = timeSlot || time;
+
     // Validate required fields
-    if (!restaurantId || !date || !timeSlot || !guests || !name || !email || !phone) {
+    if (!restaurantId || !date || !finalTimeSlot || !guests || !name || !email || !phone) {
       return res.status(400).json({ 
         error: 'Missing required fields',
-        received: { restaurantId, date, timeSlot, guests, name, email, phone }
+        received: { restaurantId, date, timeSlot: finalTimeSlot, guests, name, email, phone }
       });
     }
 
@@ -75,7 +79,7 @@ exports.createReservation = async (req, res) => {
       userId: req.user._id,
       restaurantId,
       date: new Date(date),
-      timeSlot,
+      timeSlot: finalTimeSlot,
       guests: parseInt(guests),
       name,
       email,
