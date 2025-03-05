@@ -38,46 +38,14 @@ const generateTimeSlots = (openTime, closeTime) => {
 
 // Update the createReservation function
 exports.createReservation = async (req, res) => {
-  const { 
-    restaurantId, 
-    date, 
-    timeSlot, 
-    guests,
-    name,
-    email,
-    phone,
-    occasion,
-    specialRequests,
-    seatingPreference,
-    dietaryRestrictions,
-    tablePreference
-  } = req.body;
-
   try {
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return res.status(404).json({ error: 'Restaurant not found' });
-    }
+    console.log('Received reservation request:', req.body);
+    console.log('User from auth:', req.user);
 
-    const requestedDate = new Date(date);
-    const dayName = days[requestedDate.getDay()];
-    const dayHours = restaurant.openingHours[dayName];
-
-    if (!dayHours || !dayHours.open || !dayHours.close) {
-      return res.status(400).json({ error: 'Restaurant is closed on this day' });
-    }
-
-    // Validate time slot format
-    if (!/^(1[0-2]|0?[1-9]):[0-5][0-9] (AM|PM)$/.test(timeSlot)) {
-      return res.status(400).json({ error: 'Invalid time slot format' });
-    }
-
-    // Create the reservation
-    const reservation = new Reservation({
-      userId: req.user._id,
-      restaurantId,
-      date: requestedDate,
-      timeSlot,
+    const { 
+      restaurantId, 
+      date, 
+      timeSlot, 
       guests,
       name,
       email,
@@ -87,14 +55,55 @@ exports.createReservation = async (req, res) => {
       seatingPreference,
       dietaryRestrictions,
       tablePreference
+    } = req.body;
+
+    // Validate required fields
+    if (!restaurantId || !date || !timeSlot || !guests || !name || !email || !phone) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        received: { restaurantId, date, timeSlot, guests, name, email, phone }
+      });
+    }
+
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    // Create the reservation
+    const reservation = new Reservation({
+      userId: req.user._id,
+      restaurantId,
+      date: new Date(date),
+      timeSlot,
+      guests: parseInt(guests),
+      name,
+      email,
+      phone,
+      occasion: occasion || 'Regular Dining',
+      specialRequests: specialRequests || '',
+      seatingPreference: seatingPreference?.toLowerCase() || 'indoor',
+      dietaryRestrictions: dietaryRestrictions || '',
+      tablePreference: tablePreference || 'No Preference',
+      status: 'pending',
+      paymentStatus: 'pending'
     });
 
     await reservation.save();
-    res.status(201).json({ message: 'Reservation created successfully', reservation });
+    
+    console.log('Reservation created:', reservation);
+
+    res.status(201).json({
+      message: 'Reservation created successfully',
+      reservation
+    });
 
   } catch (error) {
     console.error('Error creating reservation:', error);
-    res.status(500).json({ error: 'Failed to create reservation' });
+    res.status(500).json({ 
+      error: 'Failed to create reservation',
+      details: error.message
+    });
   }
 };
 
