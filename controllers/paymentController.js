@@ -66,7 +66,7 @@ exports.capturePaypalOrder = async (req, res) => {
             });
         }
 
-        // Find the payment record
+        // Find the payment record first
         const payment = await Payment.findOne({ transactionId: orderId });
         if (!payment) {
             return res.status(404).json({ 
@@ -75,21 +75,33 @@ exports.capturePaypalOrder = async (req, res) => {
             });
         }
 
+        // Check if payment is already completed
+        if (payment.status === 'completed') {
+            return res.status(200).json({
+                status: 'success',
+                message: 'Payment already completed',
+                orderId: payment.transactionId,
+                paymentId: payment._id,
+                reservationId
+            });
+        }
+
         // Create capture request
         const request = new paypal.orders.OrdersCaptureRequest(orderId);
-        request.requestBody({});  // PayPal requires an empty request body
+        request.requestBody({});
         
         const capture = await client.execute(request);
 
         if (capture.result.status === 'COMPLETED') {
             // Update payment status
-            await Payment.findOneAndUpdate(
+            const updatedPayment = await Payment.findOneAndUpdate(
                 { transactionId: orderId },
                 { 
                     status: 'completed',
                     updatedAt: Date.now(),
                     payerId: payerId
-                }
+                },
+                { new: true }
             );
 
             // Update reservation status
@@ -105,7 +117,7 @@ exports.capturePaypalOrder = async (req, res) => {
             return res.status(200).json({
                 status: 'success',
                 orderId: capture.result.id,
-                paymentId: payment._id,
+                paymentId: updatedPayment._id,
                 reservationId
             });
         } else {
@@ -114,7 +126,7 @@ exports.capturePaypalOrder = async (req, res) => {
     } catch (error) {
         console.error('PayPal capture error:', error);
         
-        // Update payment status to failed
+        // Update payment status to failed if we have the orderId
         if (req.body.orderId) {
             try {
                 await Payment.findOneAndUpdate(
@@ -127,21 +139,6 @@ exports.capturePaypalOrder = async (req, res) => {
                 );
             } catch (updateError) {
                 console.error('Error updating payment status:', updateError);
-            }
-        }
-
-        // Update reservation status
-        if (req.body.reservationId) {
-            try {
-                await Reservation.findByIdAndUpdate(
-                    req.body.reservationId,
-                    { 
-                        paymentStatus: 'failed',
-                        updatedAt: Date.now()
-                    }
-                );
-            } catch (updateError) {
-                console.error('Error updating reservation status:', updateError);
             }
         }
 
