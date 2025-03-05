@@ -184,46 +184,42 @@ exports.getAvailableTimeSlots = async (req, res) => {
       });
     }
 
-    // Parse opening and closing hours
+    // Generate time slots with proper formatting
+    const timeSlots = [];
     const [openHour, openMinute = '00'] = dayHours.open.split(':');
     const [closeHour, closeMinute = '00'] = dayHours.close.split(':');
-
-    // Generate time slots
-    const timeSlots = [];
+    
     const startTime = new Date(requestedDate);
     startTime.setHours(parseInt(openHour), parseInt(openMinute), 0, 0);
     
     const endTime = new Date(requestedDate);
     endTime.setHours(parseInt(closeHour), parseInt(closeMinute), 0, 0);
 
-    // Get existing reservations for the day
+    // Get existing reservations
     const existingReservations = await Reservation.find({
       restaurantId,
       date: {
-        $gte: new Date(requestedDate.setHours(0, 0, 0)),
-        $lt: new Date(requestedDate.setHours(23, 59, 59))
+        $gte: new Date(date),
+        $lt: new Date(new Date(date).setDate(new Date(date).getDate() + 1))
       }
     });
 
-    // Generate slots in 30-minute intervals
     const currentTime = new Date(startTime);
     while (currentTime < endTime) {
-      // Format time as "h:mm A" (e.g., "1:30 PM")
-      const hours = currentTime.getHours();
-      const minutes = currentTime.getMinutes();
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const formattedHours = hours % 12 || 12;
-      const formattedMinutes = minutes.toString().padStart(2, '0');
-      const timeString = `${formattedHours}:${formattedMinutes} ${ampm}`;
+      // Format time as "h:mm A"
+      const timeString = currentTime.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
 
       // Check reservations for this time slot
       const reservationsInSlot = existingReservations.filter(reservation => 
         reservation.timeSlot === timeString
       ).length;
 
-      // Calculate availability
       const availableCapacity = restaurant.maxGroupSize - (reservationsInSlot * 4);
-      const isAvailable = availableCapacity >= 4; // Minimum party size of 4
+      const isAvailable = availableCapacity >= 4;
 
       timeSlots.push({
         time: timeString,
@@ -235,13 +231,7 @@ exports.getAvailableTimeSlots = async (req, res) => {
       currentTime.setMinutes(currentTime.getMinutes() + 30);
     }
 
-    res.status(200).json({ 
-      timeSlots,
-      restaurantHours: {
-        open: dayHours.open,
-        close: dayHours.close
-      }
-    });
+    res.status(200).json({ timeSlots });
 
   } catch (error) {
     console.error('Error getting available time slots:', error);
