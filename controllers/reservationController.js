@@ -203,8 +203,28 @@ exports.deleteReservation = async (req, res) => {
 exports.getAvailableTimeSlots = async (req, res) => {
   try {
     const { restaurantId, date } = req.params;
+    
+    // Parse the date correctly
     const requestedDate = new Date(date);
-    const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][requestedDate.getDay()];
+    
+    // Validate the date
+    if (isNaN(requestedDate.getTime())) {
+      return res.status(400).json({ 
+        error: 'Invalid date format. Please use YYYY-MM-DD',
+        providedDate: date 
+      });
+    }
+
+    // Get the day name (lowercase)
+    const dayName = days[requestedDate.getDay()];
+
+    // Debug logging
+    console.log({
+      requestedDate,
+      dayName,
+      dateString: requestedDate.toISOString(),
+      dayNumber: requestedDate.getDay()
+    });
 
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) {
@@ -212,8 +232,24 @@ exports.getAvailableTimeSlots = async (req, res) => {
     }
 
     const dayHours = restaurant.openingHours[dayName];
+    
+    // Debug logging for opening hours
+    console.log({
+      dayHours,
+      allHours: restaurant.openingHours,
+      requestedDay: dayName
+    });
+
     if (!dayHours || !dayHours.open || !dayHours.close) {
-      return res.status(400).json({ error: 'Restaurant is closed on this day' });
+      return res.status(400).json({ 
+        error: `Restaurant is closed on ${dayName}`,
+        debug: {
+          requestedDate: requestedDate.toISOString(),
+          dayName,
+          openingHours: restaurant.openingHours[dayName],
+          allOpeningHours: restaurant.openingHours
+        }
+      });
     }
 
     // Generate available time slots
@@ -223,8 +259,8 @@ exports.getAvailableTimeSlots = async (req, res) => {
     const existingReservations = await Reservation.find({
       restaurantId,
       date: {
-        $gte: new Date(new Date(date).setHours(0, 0, 0)),
-        $lt: new Date(new Date(date).setHours(23, 59, 59))
+        $gte: new Date(requestedDate.setHours(0, 0, 0, 0)),
+        $lt: new Date(requestedDate.setHours(23, 59, 59, 999))
       }
     });
 
@@ -237,7 +273,7 @@ exports.getAvailableTimeSlots = async (req, res) => {
     });
 
     res.status(200).json({
-      date: requestedDate,
+      date: requestedDate.toISOString(),
       dayName,
       openingHours: dayHours,
       availableSlots
@@ -245,6 +281,13 @@ exports.getAvailableTimeSlots = async (req, res) => {
 
   } catch (error) {
     console.error('Get available time slots error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: 'Failed to get available time slots',
+      details: error.message,
+      debug: {
+        restaurantId: req.params.restaurantId,
+        date: req.params.date
+      }
+    });
   }
 }; 
