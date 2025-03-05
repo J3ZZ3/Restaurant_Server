@@ -171,7 +171,7 @@ exports.getAvailableTimeSlots = async (req, res) => {
       return res.status(404).json({ error: 'Restaurant not found' });
     }
 
-    // Get day of week in lowercase
+    // Get day of week (0 = Sunday, 1 = Monday, etc.)
     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const dayName = days[requestedDate.getDay()];
 
@@ -188,13 +188,13 @@ exports.getAvailableTimeSlots = async (req, res) => {
     const [openHour, openMinute = '00'] = dayHours.open.split(':');
     const [closeHour, closeMinute = '00'] = dayHours.close.split(':');
 
-    // Generate time slots every 30 minutes
+    // Generate time slots
     const timeSlots = [];
-    let currentSlot = new Date(requestedDate);
-    currentSlot.setHours(parseInt(openHour, 10), parseInt(openMinute, 10), 0);
+    const startTime = new Date(requestedDate);
+    startTime.setHours(parseInt(openHour), parseInt(openMinute), 0, 0);
     
-    const closeTime = new Date(requestedDate);
-    closeTime.setHours(parseInt(closeHour, 10), parseInt(closeMinute, 10), 0);
+    const endTime = new Date(requestedDate);
+    endTime.setHours(parseInt(closeHour), parseInt(closeMinute), 0, 0);
 
     // Get existing reservations for the day
     const existingReservations = await Reservation.find({
@@ -205,31 +205,34 @@ exports.getAvailableTimeSlots = async (req, res) => {
       }
     });
 
-    while (currentSlot < closeTime) {
-      const timeString = currentSlot.toLocaleTimeString('en-US', { 
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: 'UTC'  // Use UTC to avoid timezone issues
-      });
+    // Generate slots in 30-minute intervals
+    const currentTime = new Date(startTime);
+    while (currentTime < endTime) {
+      // Format time as "h:mm A" (e.g., "1:30 PM")
+      const hours = currentTime.getHours();
+      const minutes = currentTime.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const formattedHours = hours % 12 || 12;
+      const formattedMinutes = minutes.toString().padStart(2, '0');
+      const timeString = `${formattedHours}:${formattedMinutes} ${ampm}`;
 
-      // Check if slot is already booked
+      // Check reservations for this time slot
       const reservationsInSlot = existingReservations.filter(reservation => 
         reservation.timeSlot === timeString
       ).length;
 
-      // Calculate available capacity
+      // Calculate availability
       const availableCapacity = restaurant.maxGroupSize - (reservationsInSlot * 4);
       const isAvailable = availableCapacity >= 4; // Minimum party size of 4
 
       timeSlots.push({
         time: timeString,
         available: isAvailable,
-        remainingCapacity: availableCapacity
+        remainingCapacity: Math.max(0, availableCapacity)
       });
 
-      // Increment by 30 minutes
-      currentSlot.setMinutes(currentSlot.getMinutes() + 30);
+      // Add 30 minutes
+      currentTime.setMinutes(currentTime.getMinutes() + 30);
     }
 
     res.status(200).json({ 
@@ -239,6 +242,7 @@ exports.getAvailableTimeSlots = async (req, res) => {
         close: dayHours.close
       }
     });
+
   } catch (error) {
     console.error('Error getting available time slots:', error);
     res.status(500).json({ error: 'Failed to get available time slots' });
