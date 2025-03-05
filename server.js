@@ -29,11 +29,35 @@ app.use('/api/feedback', feedbackRoutes);
 
 // Add these routes before your other route definitions
 app.get('/payment/success', (req, res) => {
-    res.send('Payment successful! You can close this window.');
+    res.send(`
+        <html>
+            <body>
+                <h1>Payment Successful!</h1>
+                <p>You can close this window and return to the app.</p>
+                <script>
+                    setTimeout(() => {
+                        window.close();
+                    }, 3000);
+                </script>
+            </body>
+        </html>
+    `);
 });
 
 app.get('/payment/cancel', (req, res) => {
-    res.send('Payment cancelled! You can close this window.');
+    res.send(`
+        <html>
+            <body>
+                <h1>Payment Cancelled</h1>
+                <p>You can close this window and return to the app.</p>
+                <script>
+                    setTimeout(() => {
+                        window.close();
+                    }, 3000);
+                </script>
+            </body>
+        </html>
+    `);
 });
 
 const PORT = process.env.PORT || 5000;

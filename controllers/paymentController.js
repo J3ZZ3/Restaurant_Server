@@ -58,22 +58,31 @@ exports.capturePaypalOrder = async (req, res) => {
     try {
         const { orderId, payerId, reservationId } = req.body;
 
-        if (!orderId || !payerId) {
-            throw new Error('Missing required payment parameters');
+        if (!orderId || !payerId || !reservationId) {
+            return res.status(400).json({ 
+                error: 'Missing required parameters',
+                required: ['orderId', 'payerId', 'reservationId'],
+                received: { orderId, payerId, reservationId }
+            });
         }
 
-        // First, verify the order exists and is pending
+        // Find the payment record
         const payment = await Payment.findOne({ transactionId: orderId });
         if (!payment) {
-            throw new Error('Payment record not found');
+            return res.status(404).json({ 
+                error: 'Payment record not found',
+                orderId 
+            });
         }
 
         // Create capture request
         const request = new paypal.orders.OrdersCaptureRequest(orderId);
+        request.requestBody({});  // PayPal requires an empty request body
+        
         const capture = await client.execute(request);
 
         if (capture.result.status === 'COMPLETED') {
-            // Update payment status in database
+            // Update payment status
             await Payment.findOneAndUpdate(
                 { transactionId: orderId },
                 { 
@@ -93,41 +102,52 @@ exports.capturePaypalOrder = async (req, res) => {
                 }
             );
 
-            res.status(200).json({
+            return res.status(200).json({
                 status: 'success',
-                orderId: capture.result.id
+                orderId: capture.result.id,
+                paymentId: payment._id,
+                reservationId
             });
         } else {
-            throw new Error('Payment capture failed');
+            throw new Error(`Payment capture failed: ${capture.result.status}`);
         }
     } catch (error) {
         console.error('PayPal capture error:', error);
         
         // Update payment status to failed
         if (req.body.orderId) {
-            await Payment.findOneAndUpdate(
-                { transactionId: req.body.orderId },
-                { 
-                    status: 'failed',
-                    updatedAt: Date.now(),
-                    error: error.message
-                }
-            );
+            try {
+                await Payment.findOneAndUpdate(
+                    { transactionId: req.body.orderId },
+                    { 
+                        status: 'failed',
+                        updatedAt: Date.now(),
+                        error: error.message
+                    }
+                );
+            } catch (updateError) {
+                console.error('Error updating payment status:', updateError);
+            }
         }
 
         // Update reservation status
         if (req.body.reservationId) {
-            await Reservation.findByIdAndUpdate(
-                req.body.reservationId,
-                { 
-                    paymentStatus: 'failed',
-                    updatedAt: Date.now()
-                }
-            );
+            try {
+                await Reservation.findByIdAndUpdate(
+                    req.body.reservationId,
+                    { 
+                        paymentStatus: 'failed',
+                        updatedAt: Date.now()
+                    }
+                );
+            } catch (updateError) {
+                console.error('Error updating reservation status:', updateError);
+            }
         }
 
-        res.status(500).json({ 
-            error: error.message,
+        return res.status(500).json({ 
+            error: 'Payment capture failed',
+            message: error.message,
             details: error.details || 'No additional details available'
         });
     }
