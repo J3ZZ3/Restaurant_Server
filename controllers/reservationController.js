@@ -35,6 +35,11 @@ exports.createReservation = async (req, res) => {
       return res.status(400).json({ error: 'Restaurant is closed on this day' });
     }
 
+    // Validate time slot format
+    if (!/^(1[0-2]|0?[1-9]):[0-5][0-9] (AM|PM)$/.test(timeSlot)) {
+      return res.status(400).json({ error: 'Invalid time slot format' });
+    }
+
     // Create the reservation
     const reservation = new Reservation({
       userId: req.user._id,
@@ -179,7 +184,6 @@ exports.getAvailableTimeSlots = async (req, res) => {
     if (!dayHours || !dayHours.open || !dayHours.close) {
       return res.status(200).json({ 
         timeSlots: [],
-        restaurantHours: null,
         message: 'Restaurant is closed on this day'
       });
     }
@@ -188,7 +192,7 @@ exports.getAvailableTimeSlots = async (req, res) => {
     const timeSlots = [];
     const [openHour, openMinute = '00'] = dayHours.open.split(':');
     const [closeHour, closeMinute = '00'] = dayHours.close.split(':');
-    
+
     const startTime = new Date(requestedDate);
     startTime.setHours(parseInt(openHour), parseInt(openMinute), 0, 0);
     
@@ -199,40 +203,41 @@ exports.getAvailableTimeSlots = async (req, res) => {
     const existingReservations = await Reservation.find({
       restaurantId,
       date: {
-        $gte: new Date(new Date(date).setHours(0, 0, 0, 0)),
-        $lt: new Date(new Date(date).setHours(23, 59, 59, 999))
+        $gte: new Date(requestedDate.setHours(0, 0, 0, 0)),
+        $lt: new Date(requestedDate.setHours(23, 59, 59, 999))
       }
     });
 
+    // Generate slots in 30-minute intervals
     const currentTime = new Date(startTime);
     while (currentTime < endTime) {
-      const timeString = currentTime.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      }).replace(/\s/g, ' '); // Normalize spaces
+      const hour = currentTime.getHours();
+      const minutes = currentTime.getMinutes();
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour % 12 || 12;
+      
+      const timeString = `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
 
-      // Count reservations for this time slot
+      // Count existing reservations for this time slot
       const reservationsInSlot = existingReservations.filter(reservation => 
         reservation.timeSlot === timeString
       ).length;
 
       const availableCapacity = restaurant.maxGroupSize - (reservationsInSlot * 4);
-      const isAvailable = availableCapacity >= 4;
-
+      
       timeSlots.push({
         time: timeString,
-        available: isAvailable,
-        remainingCapacity: Math.max(0, availableCapacity)
+        available: availableCapacity >= 4,
+        capacity: Math.max(0, availableCapacity)
       });
 
       // Add 30 minutes
       currentTime.setMinutes(currentTime.getMinutes() + 30);
     }
 
-    res.status(200).json({ 
+    res.status(200).json({
       timeSlots,
-      restaurantHours: dayHours
+      restaurantHours: restaurant.openingHours
     });
 
   } catch (error) {
