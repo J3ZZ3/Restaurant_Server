@@ -18,25 +18,51 @@ const upload = multer({ storage: storage });
 exports.addRestaurant = [
   upload.single('image'), // Use multer to handle the image upload
   async (req, res) => {
-    const { 
-      name, 
-      location, 
-      cuisine, 
-      description, 
-      contact, 
-      pricing,
-      openingHours,
-      seatingOptions,
-      maxGroupSize,
-      reservationSlots,
-      rating,
-      menu
-    } = req.body;
-
     try {
+      // Parse the JSON data if it's sent as a string
+      const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      
+      const { 
+        name, 
+        location, 
+        cuisine, 
+        description, 
+        contact, 
+        pricing,
+        openingHours,
+        seatingOptions,
+        maxGroupSize,
+        menu
+      } = data;
+
+      // Validate required fields
+      if (!name || !location || !cuisine) {
+        return res.status(400).json({ 
+          error: 'Name, location, and cuisine are required fields' 
+        });
+      }
+
       // Validate pricing data
       if (!pricing || !pricing.basePrice) {
-        return res.status(400).json({ error: 'Base price per guest is required' });
+        return res.status(400).json({ 
+          error: 'Base price per guest is required' 
+        });
+      }
+
+      // Validate opening hours
+      const requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const hasValidHours = requiredDays.every(day => 
+        openingHours[day] && 
+        openingHours[day].open && 
+        openingHours[day].close &&
+        /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(openingHours[day].open) &&
+        /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(openingHours[day].close)
+      );
+
+      if (!hasValidHours) {
+        return res.status(400).json({ 
+          error: 'Valid opening hours are required for all days of the week' 
+        });
       }
 
       const newRestaurant = new Restaurant({
@@ -47,22 +73,26 @@ exports.addRestaurant = [
         contact,
         pricing,
         openingHours,
-        seatingOptions,
-        maxGroupSize,
-        reservationSlots,
-        imageUrl: req.file ? req.file.path : null, // Use uploaded image URL or null
-        rating: rating || 0,
+        seatingOptions: seatingOptions || { indoor: true, outdoor: false },
+        maxGroupSize: maxGroupSize || 20,
+        imageUrl: req.file ? req.file.path : null,
         menu: menu || [],
         ownerId: req.user._id // Automatically set ownerId from authenticated user
       });
 
       await newRestaurant.save();
-      res.status(201).json({ message: 'Restaurant added successfully', restaurant: newRestaurant });
+      res.status(201).json({ 
+        message: 'Restaurant added successfully', 
+        restaurant: newRestaurant 
+      });
     } catch (error) {
       console.error('Add restaurant error:', error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ 
+        error: error.message,
+        details: 'Failed to add restaurant'
+      });
     }
-  },
+  }
 ];
 
 // Get all restaurants
