@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['user', 'admin', 'restaurant_owner'], default: 'user' },
   phoneNumber: { type: String },
   address: { type: String },
+  imageUrl: { type: String, default: 'https://res.cloudinary.com/your-cloud-name/image/upload/v1234567890/default-avatar.png' },
   dateOfBirth: { type: Date },
   preferences: {
     dietaryRestrictions: [String],

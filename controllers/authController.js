@@ -2,6 +2,8 @@ const { auth } = require('../config/firebase');
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { cloudinary } = require('../config/cloudinary');
+const streamifier = require('streamifier');
 
 // Register user
 exports.register = async (req, res) => {
@@ -161,5 +163,51 @@ exports.updateUserProfile = async (req, res) => {
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.updateProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    // Upload to Cloudinary
+    const uploadPromise = new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'profile-pictures',
+          allowed_formats: ['jpg', 'png', 'jpeg'],
+          transformation: [
+            { width: 500, height: 500, crop: 'fill' },
+            { quality: 'auto' }
+          ]
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+
+      streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+    });
+
+    const result = await uploadPromise;
+
+    // Update user's imageUrl in database
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { imageUrl: result.secure_url },
+      { new: true }
+    ).select('-password');
+
+    res.json({
+      message: 'Profile image updated successfully',
+      imageUrl: result.secure_url,
+      user
+    });
+  } catch (error) {
+    console.error('Update profile image error:', error);
+    res.status(500).json({ error: 'Failed to update profile image' });
   }
 };

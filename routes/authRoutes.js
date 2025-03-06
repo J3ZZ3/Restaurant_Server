@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getUserProfile, updateUserProfile } = require('../controllers/authController');
+const multer = require('multer');
+const { cloudinary } = require('../config/cloudinary');
+const upload = multer({ storage: multer.memoryStorage() });
+const { register, login, getUserProfile, updateUserProfile, updateProfileImage } = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware');
 const User = require('../models/userModel');
 const bcrypt = require('bcrypt');
@@ -67,5 +70,11 @@ router.delete('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+router.post('/me/profile-image', 
+  authMiddleware, 
+  upload.single('image'), 
+  updateProfileImage
+);
 
 module.exports = router;
