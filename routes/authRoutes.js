@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { register, login, getUserProfile, updateUserProfile } = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware');
-const User = require('../models/user');
+const User = require('../models/userModel');
 const bcrypt = require('bcrypt');
 
 // User registration and login routes
