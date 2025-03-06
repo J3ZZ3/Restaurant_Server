@@ -2,7 +2,7 @@ const { auth } = require('../config/firebase');
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { cloudinary } = require('../config/cloudinary');
+const cloudinary = require('../config/cloudinaryConfig');
 const streamifier = require('streamifier');
 
 // Register user
