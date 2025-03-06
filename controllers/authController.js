@@ -172,6 +172,8 @@ exports.updateProfileImage = async (req, res) => {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
+    console.log('Starting image upload to Cloudinary...');
+
     // Upload to Cloudinary
     const uploadPromise = new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -184,8 +186,13 @@ exports.updateProfileImage = async (req, res) => {
           ]
         },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
+          if (error) {
+            console.error('Cloudinary upload error:', error);
+            reject(error);
+          } else {
+            console.log('Cloudinary upload success:', result.secure_url);
+            resolve(result);
+          }
         }
       );
 
@@ -197,9 +204,16 @@ exports.updateProfileImage = async (req, res) => {
     // Update user's imageUrl in database
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { imageUrl: result.secure_url },
+      { 
+        imageUrl: result.secure_url,
+        updatedAt: Date.now()
+      },
       { new: true }
     ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     res.json({
       message: 'Profile image updated successfully',
@@ -208,6 +222,23 @@ exports.updateProfileImage = async (req, res) => {
     });
   } catch (error) {
     console.error('Update profile image error:', error);
-    res.status(500).json({ error: 'Failed to update profile image' });
+    
+    // More specific error messages
+    if (error.http_code === 401) {
+      return res.status(500).json({ 
+        error: 'Cloudinary authentication failed. Please check configuration.' 
+      });
+    }
+    
+    if (error.message && error.message.includes('cloud_name')) {
+      return res.status(500).json({ 
+        error: 'Invalid Cloudinary configuration. Please check cloud name.' 
+      });
+    }
+
+    res.status(500).json({ 
+      error: 'Failed to update profile image',
+      details: error.message
+    });
   }
 };

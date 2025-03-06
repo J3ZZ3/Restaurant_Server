@@ -10,6 +10,12 @@ const connectDB = require('./config/mongo');
 const bodyParser = require('body-parser');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const cloudinary = require('./config/cloudinaryConfig');
+
+// Add this after your imports to verify Cloudinary config
+console.log('Verifying Cloudinary configuration...');
+cloudinary.config().cloud_name && console.log('Cloudinary configured successfully');
+
 const app = express();
 
 app.use(cors());
