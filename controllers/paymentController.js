@@ -148,4 +148,86 @@ exports.capturePaypalOrder = async (req, res) => {
             details: error.details || 'No additional details available'
         });
     }
+};
+
+// Add this new function
+exports.requestRefund = async (req, res) => {
+    try {
+        const { reservationId, reason } = req.body;
+
+        // Find the payment record
+        const payment = await Payment.findOne({ reservationId });
+        if (!payment) {
+            return res.status(404).json({ error: 'Payment not found' });
+        }
+
+        // Check if payment is eligible for refund
+        if (payment.status !== 'completed') {
+            return res.status(400).json({ 
+                error: 'Payment not eligible for refund',
+                status: payment.status 
+            });
+        }
+
+        // Check if refund already requested
+        if (payment.refundDetails && payment.refundDetails.status) {
+            return res.status(400).json({ 
+                error: 'Refund already requested',
+                status: payment.refundDetails.status 
+            });
+        }
+
+        // Create refund request using PayPal SDK
+        const request = new paypal.payments.RefundsPostRequest(payment.transactionId);
+        request.requestBody({
+            amount: {
+                currency_code: 'USD',
+                value: payment.amount.toString()
+            },
+            note_to_payer: 'Refund for cancelled reservation'
+        });
+
+        const refund = await client.execute(request);
+
+        // Update payment record
+        const updatedPayment = await Payment.findByIdAndUpdate(
+            payment._id,
+            {
+                status: 'refund_pending',
+                refundDetails: {
+                    requestedAt: new Date(),
+                    reason: reason,
+                    status: 'pending',
+                    refundId: refund.result.id,
+                    amount: payment.amount
+                },
+                updatedAt: Date.now()
+            },
+            { new: true }
+        );
+
+        // Update reservation status
+        await Reservation.findByIdAndUpdate(
+            reservationId,
+            { 
+                status: 'refund_pending',
+                updatedAt: Date.now()
+            }
+        );
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Refund request processed successfully',
+            refundId: refund.result.id,
+            payment: updatedPayment
+        });
+
+    } catch (error) {
+        console.error('Refund request error:', error);
+        return res.status(500).json({ 
+            error: 'Refund request failed',
+            message: error.message,
+            details: error.details || 'No additional details available'
+        });
+    }
 }; 

@@ -9,6 +9,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const connectDB = require('./config/mongo');
 const bodyParser = require('body-parser');
 const feedbackRoutes = require('./routes/feedbackRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 const app = express();
 
 app.use(cors());
@@ -26,6 +27,7 @@ app.use('/api/reservations', reservationRoutes);
 app.use('/api/user/reservations', userReservationRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Add these routes before your other route definitions
 app.get('/payment/success', (req, res) => {
