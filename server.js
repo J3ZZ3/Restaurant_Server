@@ -11,12 +11,16 @@ const bodyParser = require('body-parser');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const cloudinary = require('./config/cloudinaryConfig');
+const http = require('http');
+const socketIo = require('socket.io');
 
 // Add this after your imports to verify Cloudinary config
 console.log('Verifying Cloudinary configuration...');
 cloudinary.config().cloud_name && console.log('Cloudinary configured successfully');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
 
 app.use(cors());
 app.use(express.json());
@@ -68,9 +72,19 @@ app.get('/payment/cancel', (req, res) => {
     `);
 });
 
+// Listen for socket connections
+io.on('connection', (socket) => {
+    console.log('New client connected');
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+        console.log('Client disconnected');
+    });
+});
+
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
 

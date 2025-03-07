@@ -1,6 +1,7 @@
 const paypal = require('@paypal/checkout-server-sdk');
 const Payment = require('../models/paymentModel');
 const Reservation = require('../models/reservationModel');
+const io = require('../server');
 
 // Configure PayPal environment
 let environment = new paypal.core.SandboxEnvironment(
@@ -103,6 +104,9 @@ exports.capturePaypalOrder = async (req, res) => {
                 },
                 { new: true }
             );
+
+            // Emit event for real-time updates
+            io.emit('paymentCaptured', updatedPayment);
 
             // Update reservation status
             await Reservation.findByIdAndUpdate(
@@ -214,6 +218,9 @@ exports.requestRefund = async (req, res) => {
                 updatedAt: Date.now()
             }
         );
+
+        // Emit event for real-time updates
+        io.emit('refundRequested', updatedPayment);
 
         return res.status(200).json({
             status: 'success',

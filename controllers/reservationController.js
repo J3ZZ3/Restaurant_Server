@@ -1,5 +1,6 @@
 const Reservation = require('../models/reservationModel');
 const Restaurant = require('../models/restaurantModel');
+const io = require('../server');
 
 // Define days array at the top level
 const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -95,6 +96,9 @@ exports.createReservation = async (req, res) => {
 
     await reservation.save();
     
+    // Emit event for real-time updates
+    io.emit('reservationCreated', reservation);
+
     console.log('Reservation created:', reservation);
 
     res.status(201).json({
@@ -191,6 +195,9 @@ exports.updateReservation = async (req, res) => {
       return res.status(404).json({ error: 'Reservation not found' });
     }
 
+    // Emit event for real-time updates
+    io.emit('reservationUpdated', reservation);
+
     res.status(200).json({
       message: 'Reservation updated successfully',
       reservation
@@ -206,6 +213,10 @@ exports.deleteReservation = async (req, res) => {
   try {
     const reservation = await Reservation.findByIdAndDelete(req.params.id);
     if (!reservation) return res.status(404).json({ error: 'Reservation not found' });
+
+    // Emit event for real-time updates
+    io.emit('reservationDeleted', reservation);
+
     res.status(200).json({ message: 'Reservation cancelled successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
