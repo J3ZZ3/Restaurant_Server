@@ -75,7 +75,7 @@ exports.createReservation = async (req, res) => {
       return res.status(404).json({ error: 'Restaurant not found' });
     }
 
-    // Create the reservation
+    // Create the reservation without Socket.IO
     const reservation = new Reservation({
       userId: req.user._id,
       restaurantId,
@@ -95,9 +95,6 @@ exports.createReservation = async (req, res) => {
     });
 
     await reservation.save();
-    
-    // Emit event for real-time updates
-    io.emit('reservationCreated', reservation);
 
     console.log('Reservation created:', reservation);
 
