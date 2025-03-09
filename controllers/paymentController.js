@@ -58,6 +58,7 @@ exports.createPaypalOrder = async (req, res) => {
 exports.capturePaypalOrder = async (req, res) => {
     try {
         const { orderId, payerId, reservationId } = req.body;
+        console.log('Received capture request:', { orderId, payerId, reservationId });
 
         if (!orderId || !payerId || !reservationId) {
             return res.status(400).json({ 
@@ -78,6 +79,17 @@ exports.capturePaypalOrder = async (req, res) => {
 
         // Check if payment is already completed
         if (payment.status === 'completed') {
+            // Update reservation status if not already done
+            await Reservation.findByIdAndUpdate(
+                reservationId,
+                { 
+                    paymentStatus: 'completed',
+                    status: 'confirmed',
+                    updatedAt: Date.now()
+                },
+                { new: true }
+            );
+
             return res.status(200).json({
                 status: 'success',
                 message: 'Payment already completed',
@@ -91,7 +103,9 @@ exports.capturePaypalOrder = async (req, res) => {
         const request = new paypal.orders.OrdersCaptureRequest(orderId);
         request.requestBody({});
         
+        console.log('Executing PayPal capture request...');
         const capture = await client.execute(request);
+        console.log('PayPal capture response:', capture.result);
 
         if (capture.result.status === 'COMPLETED') {
             // Update payment status
@@ -100,29 +114,29 @@ exports.capturePaypalOrder = async (req, res) => {
                 { 
                     status: 'completed',
                     updatedAt: Date.now(),
-                    payerId: payerId
+                    payerId: payerId,
+                    captureDetails: capture.result
                 },
                 { new: true }
             );
 
-            // Emit event for real-time updates
-            io.emit('paymentCaptured', updatedPayment);
-
             // Update reservation status
-            await Reservation.findByIdAndUpdate(
+            const updatedReservation = await Reservation.findByIdAndUpdate(
                 reservationId,
                 { 
                     paymentStatus: 'completed',
                     status: 'confirmed',
                     updatedAt: Date.now()
-                }
+                },
+                { new: true }
             );
 
             return res.status(200).json({
                 status: 'success',
                 orderId: capture.result.id,
                 paymentId: updatedPayment._id,
-                reservationId
+                reservationId,
+                reservation: updatedReservation
             });
         } else {
             throw new Error(`Payment capture failed: ${capture.result.status}`);
